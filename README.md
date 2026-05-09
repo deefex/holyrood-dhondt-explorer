@@ -24,6 +24,8 @@ Steps through all 7 allocation rounds for any region. Shows:
 - **Running seat tally** as coloured chips
 - **Cost per seat** on the final round — raw list votes divided by seats won, making the SNP's structural list inefficiency visible
 
+![D'Hondt Explorer screenshot](images/explorer.png)
+
 ### Tab 2 — Vote Boost Simulator
 
 Answers "what if a party had more list votes?" in real time:
