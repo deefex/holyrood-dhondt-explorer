@@ -24,7 +24,7 @@ Steps through all 7 allocation rounds for any region. Shows:
 - **Running seat tally** as coloured chips
 - **Cost per seat** on the final round — raw list votes divided by seats won, making the SNP's structural list inefficiency visible
 
-![D'Hondt Explorer screenshot](images/explorer.png)
+![D'Hondt Explorer](images/explorer.png)
 
 ### Tab 2 — Vote Boost Simulator
 
@@ -38,6 +38,8 @@ Answers "what if a party had more list votes?" in real time:
 - **Displacement detection** — flags when boosting an independence party gains a seat but displaces another independence party (net gain: zero)
 - **Key insight box** — dynamically generated plain-English conclusion
 - **Full simulated D'Hondt table** — effective votes for every party in every round
+
+![Vote Boost Simulator](images/vote-boost.png)
 
 ---
 
