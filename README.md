@@ -46,7 +46,7 @@ Answers "what if a party had more list votes?" in real time:
 ## Usage
 
 ```
-open index.html
+open holyrood-2021.html
 ```
 
 No server, no build step, no npm. Just open the file.
@@ -55,7 +55,7 @@ No server, no build step, no npm. Just open the file.
 
 ## Updating for 2026 results
 
-All regional data lives in a single `REGIONS` object near the top of `index.html`, clearly marked:
+All regional data lives in a single `REGIONS` object near the top of `holyrood-2021.html`, clearly marked:
 
 ```js
 // ╔══════════════════════════════════════════════════════════╗
