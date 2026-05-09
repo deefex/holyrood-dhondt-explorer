@@ -2,9 +2,9 @@
 
 An interactive single-page web app for understanding how regional list seats are allocated in Scottish Parliament elections using the D'Hondt method.
 
-Built in vanilla HTML/CSS/JS — open `index.html` directly in a browser, no build step required.
+Built in vanilla HTML/CSS/JS — open `holyrood-2021.html` directly in a browser, no build step required.
 
-![Dark navy data-journalism aesthetic, two-tab layout](https://img.shields.io/badge/data-journalism-style-3b82f6?style=flat-square) ![No dependencies](https://img.shields.io/badge/dependencies-none-22c55e?style=flat-square) ![2021 data](https://img.shields.io/badge/data-2021%20official-eab308?style=flat-square)
+![No dependencies](https://img.shields.io/badge/dependencies-none-22c55e?style=flat-square) ![2021 data](https://img.shields.io/badge/data-2021%20official-eab308?style=flat-square)
 
 ---
 
