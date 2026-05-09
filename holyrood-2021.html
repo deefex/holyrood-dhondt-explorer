@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Scottish Parliament D'Hondt Explorer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:          #0d1b2a;
+  --bg-card:     #111f30;
+  --bg-hover:    #172840;
+  --border:      #1c3450;
+  --border-lt:   #243e60;
+  --text:        #ddeaf8;
+  --muted:       #6a8daa;
+  --dim:         #3a5570;
+  --accent:      #3b82f6;
+  --green:       #22c55e;
+  --red:         #ef4444;
+  --yellow:      #eab308;
+  --ui:          'DM Sans', system-ui, sans-serif;
+  --mono:        'JetBrains Mono', 'Fira Code', monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--ui);
+  min-height: 100vh;
+  line-height: 1.55;
+  background-image:
+    linear-gradient(rgba(28,52,80,.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(28,52,80,.18) 1px, transparent 1px);
+  background-size: 60px 60px;
+}
+
+/* ── Layout ───────────────────────────────────────────────── */
+.wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+
+header {
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg,#091523 0%,var(--bg) 100%);
+  position: sticky; top: 0; z-index: 50;
+}
+.hdr-top { padding: 18px 0 0; }
+.hdr-top h1 { font-size: clamp(1.1rem,2.5vw,1.45rem); font-weight: 700; letter-spacing:-.02em; }
+.hdr-top h1 em { color: var(--accent); font-style: normal; }
+.hdr-sub { color: var(--muted); font-size: .8rem; margin-top: 2px; margin-bottom: 14px; }
+
+.region-bar {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 14px 0;
+}
+.region-bar label { font-size: .7rem; text-transform: uppercase; letter-spacing:.09em; color: var(--muted); font-weight:600; white-space:nowrap; }
+
+select, .btn {
+  font-family: var(--ui); font-size: .875rem;
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text); border-radius: 6px; cursor: pointer;
+  outline: none; transition: border-color .15s, background .15s;
+}
+select { padding: 7px 10px; }
+select:hover, select:focus { border-color: var(--accent); }
+
+.approx-tag {
+  font-size: .7rem; font-weight: 700; font-family: var(--mono);
+  text-transform: uppercase; letter-spacing: .06em;
+  padding: 2px 6px; border-radius: 3px;
+  background: rgba(234,179,8,.1); border: 1px solid rgba(234,179,8,.3);
+  color: var(--yellow);
+}
+.approx-note { font-size: .78rem; color: var(--muted); }
+
+/* Tabs */
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
+.tab-btn {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--muted); font-family: var(--ui); font-size: .875rem;
+  font-weight: 500; padding: 10px 16px; cursor: pointer;
+  margin-bottom: -1px; transition: color .15s, border-color .15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+main { max-width: 1100px; margin: 0 auto; padding: 28px 24px 60px; }
+
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ── Utility ──────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 18px 20px; margin-bottom: 14px;
+}
+.card-label {
+  font-size: .7rem; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--muted); font-weight: 600; margin-bottom: 10px;
+}
+.mono { font-family: var(--mono); }
+
+.btn { padding: 8px 16px; font-weight: 500; }
+.btn:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--accent); }
+.btn:disabled { opacity: .38; cursor: not-allowed; }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn-primary:hover:not(:disabled) { background: #2563eb; border-color: #2563eb; }
+
+/* Tooltip */
+.tip-wrap { position: relative; display: inline-flex; align-items: center; vertical-align: middle; }
+.tip-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--border-lt, #243e60); color: var(--muted);
+  font-size: .62rem; font-style: normal; cursor: help;
+  margin-left: 4px; flex-shrink: 0;
+}
+.tip-text {
+  display: none; position: absolute; bottom: calc(100% + 7px); left: 50%;
+  transform: translateX(-50%); width: 210px;
+  background: #1b3654; border: 1px solid var(--border-lt);
+  color: var(--text); font-size: .75rem; font-family: var(--ui);
+  font-weight: 400; text-transform: none; letter-spacing: normal;
+  padding: 9px 12px; border-radius: 6px; line-height: 1.45;
+  white-space: normal; z-index: 200; pointer-events: none;
+}
+.tip-wrap:hover .tip-text { display: block; }
+
+/* ── Narration ────────────────────────────────────────────── */
+.narration {
+  background: linear-gradient(135deg,#0e2740 0%,#101e2e 100%);
+  border: 1px solid var(--border-lt); border-left: 3px solid var(--accent);
+  border-radius: 8px; padding: 14px 18px; margin-bottom: 16px;
+  font-size: .9rem; line-height: 1.65; animation: fadein .2s ease;
+}
+.narration strong { color: #93c5fd; }
+@keyframes fadein { from { opacity:0; transform:translateY(3px); } to { opacity:1; transform:none; } }
+
+/* ── Round controls ───────────────────────────────────────── */
+.round-row { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; flex-wrap: wrap; }
+.round-badge {
+  font-family: var(--mono); font-size: 1rem; font-weight: 700;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 6px; padding: 6px 14px; white-space: nowrap;
+}
+.round-pips { display: flex; gap: 5px; margin-bottom: 16px; }
+.round-pip { flex: 1; height: 4px; border-radius: 2px; background: var(--border); transition: background .2s; }
+.round-pip.done { background: var(--accent); }
+.round-pip.active { background: #93c5fd; }
+
+/* ── Table ────────────────────────────────────────────────── */
+.tbl-scroll { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+thead th {
+  background: #091523; padding: 10px 14px; text-align: left;
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .09em;
+  color: var(--muted); font-weight: 600; white-space: nowrap;
+}
+thead th:not(:first-child) { text-align: right; }
+tbody tr { border-top: 1px solid var(--border); transition: background .12s; }
+tbody tr:hover { background: rgba(59,130,246,.04); }
+tbody tr.win-row { background: rgba(59,130,246,.09); }
+tbody tr.dim-row { opacity: .32; }
+td { padding: 9px 14px; text-align: right; }
+td:first-child { text-align: left; }
+
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.party-cell { display: flex; align-items: center; gap: 8px; font-weight: 500; }
+.win-badge {
+  font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  padding: 2px 6px; border-radius: 3px; background: var(--accent); color: #fff; margin-left: 6px;
+}
+.eff-vote { font-family: var(--mono); font-weight: 700; }
+.win-row .eff-vote { color: #93c5fd; }
+.pips { display: flex; gap: 4px; justify-content: flex-end; flex-wrap: wrap; }
+.pip { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── Seat tally ───────────────────────────────────────────── */
+.tally { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.chip {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 20px; padding: 4px 10px 4px 8px; font-size: .8rem;
+}
+.chip-n { font-family: var(--mono); font-weight: 700; font-size: .88rem; }
+
+/* ── Cost per seat ────────────────────────────────────────── */
+.cost-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(175px,1fr)); gap: 10px; margin-top: 10px; }
+.cost-card { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+.cost-party { font-size: .78rem; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+.cost-val { font-family: var(--mono); font-size: 1.05rem; font-weight: 700; }
+.cost-sub { font-size: .68rem; color: var(--muted); margin-top: 2px; }
+
+/* ── Simulator ────────────────────────────────────────────── */
+.sim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+@media(max-width:580px){ .sim-grid { grid-template-columns: 1fr; } }
+.ctrl-label { font-size: .7rem; text-transform: uppercase; letter-spacing:.09em; color:var(--muted); font-weight:600; display:block; margin-bottom:7px; }
+.boost-num { font-family: var(--mono); font-size: 1.9rem; font-weight: 700; color: var(--accent); margin-bottom: 8px; }
+
+input[type=range] {
+  width: 100%; -webkit-appearance: none; height: 4px;
+  background: var(--border); border-radius: 2px; outline: none; cursor: pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 16px; height: 16px;
+  background: var(--accent); border-radius: 50%; cursor: pointer;
+}
+input[type=range]::-moz-range-thumb {
+  width: 16px; height: 16px; background: var(--accent);
+  border-radius: 50%; cursor: pointer; border: none;
+}
+.range-labels { display:flex; justify-content:space-between; font-size:.68rem; color:var(--muted); margin-top:4px; }
+
+/* Turnout */
+.turnout-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(145px,1fr)); gap: 10px; }
+.t-stat { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 12px; }
+.t-val { font-family: var(--mono); font-size: 1.2rem; font-weight: 700; margin-bottom: 3px; }
+.t-lbl { font-size: .68rem; color: var(--muted); }
+.turnout-note { font-size:.8rem; color:var(--muted); margin-top:10px; line-height:1.5; }
+
+/* Insight */
+.insight {
+  border: 1px solid var(--border-lt); border-left: 3px solid var(--yellow);
+  border-radius: 8px; padding: 14px 18px; font-size: .9rem;
+  line-height: 1.65; margin-bottom: 14px;
+  background: linear-gradient(135deg,#1a2a10 0%,#0e1c0a 100%);
+}
+.insight strong { color: #fcd34d; }
+.insight.warn {
+  background: linear-gradient(135deg,#2a1010 0%,#1a0a0a 100%);
+  border-left-color: var(--red);
+}
+.insight.warn strong { color: #fca5a5; }
+.insight.neutral { background: linear-gradient(135deg,#0f2740 0%,#0d1f30 100%); border-left-color: var(--accent); }
+.insight.neutral strong { color: #93c5fd; }
+
+/* Comparison */
+.cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+@media(max-width:580px){ .cmp { grid-template-columns: 1fr; } }
+.cmp-panel { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+.cmp-panel h3 { font-size:.7rem; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); font-weight:600; margin-bottom:10px; }
+.cmp-row { display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border); font-size:.875rem; }
+.cmp-row:last-child { border-bottom:none; }
+.cmp-party { display:flex; align-items:center; gap:8px; }
+.cmp-seats { font-family:var(--mono); font-weight:700; font-size:.95rem; }
+.badge-gain { font-family:var(--mono); font-size:.7rem; font-weight:700; padding:2px 6px; border-radius:3px; background:rgba(34,197,94,.18); color:var(--green); margin-left:5px; }
+.badge-loss { font-family:var(--mono); font-size:.7rem; font-weight:700; padding:2px 6px; border-radius:3px; background:rgba(239,68,68,.18); color:var(--red); margin-left:5px; }
+
+/* Sim mini-table effective vote cells */
+.ev-win { color:#93c5fd; font-weight:700; }
+
+/* ── Footer ───────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border); padding: 24px;
+  text-align: center; font-size: .78rem; color: var(--dim);
+  max-width: 1100px; margin: 0 auto;
+}
+footer strong { color: var(--muted); }
+
+@media(max-width:640px){
+  .wrap, main { padding-left: 16px; padding-right: 16px; }
+  .hdr-top h1 { font-size: 1.05rem; }
+}
+</style>
+</head>
+<body>
+
+<header>
+<div class="wrap">
+  <div class="hdr-top">
+    <h1>Scottish Parliament <em>D'Hondt Explorer</em></h1>
+    <div class="hdr-sub">Interactive regional list seat allocation tools — 2021 results</div>
+  </div>
+  <div class="region-bar">
+    <label for="rgn">Region</label>
+    <select id="rgn"></select>
+    <span id="approx-note"></span>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="explorer">D'Hondt Round Explorer</button>
+    <button class="tab-btn"        data-tab="simulator">Vote Boost Simulator</button>
+  </div>
+</div>
+</header>
+
+<main>
+
+<!-- ══════════════════════════════════════════════════════════
+     TOOL 1 — D'HONDT ROUND EXPLORER
+════════════════════════════════════════════════════════════ -->
+<div class="panel active" id="panel-explorer">
+
+  <div class="round-row">
+    <button class="btn" id="btn-prev" disabled>← Previous</button>
+    <span class="round-badge" id="round-badge">Round 1 of 7</span>
+    <button class="btn btn-primary" id="btn-next">Next Round →</button>
+    <button class="btn" id="btn-reset" style="margin-left:auto">Reset</button>
+  </div>
+
+  <div class="round-pips" id="round-pips"></div>
+  <div class="narration" id="narration"></div>
+
+  <div class="tbl-scroll">
+    <table id="exp-table">
+      <thead>
+        <tr>
+          <th>Party</th>
+          <th>List Votes</th>
+          <th>Const. Wins</th>
+          <th>
+            <span class="tip-wrap">Divisor
+              <span class="tip-icon">ⓘ</span>
+              <span class="tip-text">Constituency wins + list seats won so far + 1. Grows every time a party wins a seat, making each additional seat harder to win.</span>
+            </span>
+          </th>
+          <th>
+            <span class="tip-wrap">Effective Vote
+              <span class="tip-icon">ⓘ</span>
+              <span class="tip-text">List votes ÷ divisor. The party with the highest effective vote wins each round. A party with many constituency wins already has a high divisor, slashing their effective vote.</span>
+            </span>
+          </th>
+          <th>Seats Won</th>
+        </tr>
+      </thead>
+      <tbody id="exp-tbody"></tbody>
+    </table>
+  </div>
+
+  <div>
+    <div class="card-label">Running Seat Tally</div>
+    <div class="tally" id="tally"></div>
+  </div>
+
+  <div id="cost-section" style="display:none;margin-top:20px">
+    <div class="card">
+      <div class="card-label">Cost Per List Seat — Final Result</div>
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:12px;line-height:1.5">
+        Raw list votes ÷ list seats won. The higher the cost, the less efficiently those votes translated into representation.
+        The SNP's high constituency haul creates a large starting divisor, making their list votes structurally expensive.
+      </p>
+      <div class="cost-grid" id="cost-grid"></div>
+    </div>
+  </div>
+
+</div><!-- /explorer -->
+
+
+<!-- ══════════════════════════════════════════════════════════
+     TOOL 2 — VOTE BOOST SIMULATOR
+════════════════════════════════════════════════════════════ -->
+<div class="panel" id="panel-simulator">
+
+  <div class="card">
+    <div class="card-label">Simulation Controls</div>
+    <div class="sim-grid">
+      <div>
+        <label class="ctrl-label" for="boost-party">Boost which party?</label>
+        <select id="boost-party" style="width:100%"></select>
+      </div>
+      <div>
+        <label class="ctrl-label" for="vote-src">Where do the extra votes come from?</label>
+        <select id="vote-src" style="width:100%">
+          <option value="air">New voters — thin air</option>
+          <option value="labour">From Labour only</option>
+          <option value="con">From Conservative only</option>
+          <option value="labcon">From Labour &amp; Conservative equally</option>
+          <option value="unionist">From all unionist parties equally</option>
+        </select>
+      </div>
+    </div>
+    <div>
+      <label class="ctrl-label">Extra votes to add</label>
+      <div class="boost-num" id="boost-num">+0</div>
+      <input type="range" id="boost-slider" min="0" max="200000" step="1000" value="0">
+      <div class="range-labels">
+        <span>0</span><span>50,000</span><span>100,000</span><span>150,000</span><span>200,000</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" id="turnout-card" style="display:none">
+    <div class="card-label">Turnout Impact</div>
+    <div class="turnout-grid" id="turnout-grid"></div>
+    <p class="turnout-note" id="turnout-note"></p>
+  </div>
+
+  <div class="insight neutral" id="insight"></div>
+
+  <div class="cmp">
+    <div class="cmp-panel">
+      <h3>Actual Result (2021)</h3>
+      <div id="cmp-actual"></div>
+    </div>
+    <div class="cmp-panel">
+      <h3>Simulated Result</h3>
+      <div id="cmp-sim"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Simulated D'Hondt Allocation — Round by Round (effective votes shown)</div>
+    <div class="tbl-scroll" style="margin-top:8px">
+      <table id="sim-table">
+        <thead>
+          <tr>
+            <th>Party</th>
+            <th>List Votes</th>
+            <th>Const.</th>
+            <th>Rd 1</th><th>Rd 2</th><th>Rd 3</th><th>Rd 4</th>
+            <th>Rd 5</th><th>Rd 6</th><th>Rd 7</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody id="sim-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div><!-- /simulator -->
+</main>
+
+<footer class="wrap">
+  <p>Data: <strong>2021 Scottish Parliament Official Results</strong> — Electoral Management Board for Scotland &amp; Scottish Parliament.</p>
+  <p style="margin-top:5px">
+    <span class="approx-tag">~</span>
+    Approximate figures are used for some regions where full verified breakdowns are not in the embedded dataset.
+    All D'Hondt calculations are exact once data is entered. The algorithm is authoritative; verify source figures with official records.
+  </p>
+</footer>
+
+<script>
+// ╔══════════════════════════════════════════════════════════╗
+// ║  UPDATE WITH 2026 DATA HERE                              ║
+// ║  Replace the REGIONS object below with official 2026     ║
+// ║  figures. All calculations update automatically.         ║
+// ╚══════════════════════════════════════════════════════════╝
+
+const REGIONS = {
+  "Mid Scotland & Fife": {
+    year: 2021,
+    approximate: false,
+    electorate: 516000,
+    totalVotes: 344059,
+    seats: 7,
+    parties: [
+      { name: "SNP",                  votes: 135827, cWins: 8, color: "#faa61a" },
+      { name: "Conservative",         votes: 85848,  cWins: 0, color: "#0087DC" },
+      { name: "Labour",               votes: 52514,  cWins: 0, color: "#d50000" },
+      { name: "Green",                votes: 28474,  cWins: 0, color: "#00b140" },
+      { name: "Lib Dems",             votes: 25374,  cWins: 1, color: "#fdbb30" },
+      { name: "Alba",                 votes: 7801,   cWins: 0, color: "#005eb8" },
+      { name: "All for Unity",        votes: 3835,   cWins: 0, color: "#888888" },
+      { name: "Scot. Family Party",   votes: 2618,   cWins: 0, color: "#999999" },
+      { name: "Ind. Green Voice",     votes: 2116,   cWins: 0, color: "#66aa66" },
+      { name: "Reform UK",            votes: 907,    cWins: 0, color: "#12b6cf" },
+      { name: "Freedom Alliance",     votes: 870,    cWins: 0, color: "#777777" },
+      { name: "Libertarian",          votes: 826,    cWins: 0, color: "#aaaaaa" },
+      { name: "UKIP",                 votes: 609,    cWins: 0, color: "#bbbbbb" },
+      { name: "TUSC",                 votes: 153,    cWins: 0, color: "#cccccc" },
+    ]
+  },
+  "Central Scotland": {
+    year: 2021,
+    approximate: true,
+    electorate: 490000,
+    totalVotes: 322000,
+    seats: 7,
+    parties: [
+      { name: "SNP",          votes: 148399, cWins: 9, color: "#faa61a" },
+      { name: "Labour",       votes: 72000,  cWins: 0, color: "#d50000" },
+      { name: "Conservative", votes: 68000,  cWins: 0, color: "#0087DC" },
+      { name: "Green",        votes: 19512,  cWins: 0, color: "#00b140" },
+      { name: "Lib Dems",     votes: 8000,   cWins: 0, color: "#fdbb30" },
+      { name: "Alba",         votes: 6089,   cWins: 0, color: "#005eb8" },
+    ]
+  },
+  "Glasgow": {
+    year: 2021,
+    approximate: true,
+    electorate: 480000,
+    totalVotes: 268000,
+    seats: 7,
+    parties: [
+      { name: "SNP",          votes: 111101, cWins: 7, color: "#faa61a" },
+      { name: "Labour",       votes: 68000,  cWins: 0, color: "#d50000" },
+      { name: "Conservative", votes: 44000,  cWins: 0, color: "#0087DC" },
+      { name: "Green",        votes: 25744,  cWins: 0, color: "#00b140" },
+      { name: "Lib Dems",     votes: 7000,   cWins: 0, color: "#fdbb30" },
+      { name: "Alba",         votes: 5816,   cWins: 0, color: "#005eb8" },
+    ]
+  },
+  "Lothian": {
+    year: 2021,
+    approximate: true,
+    electorate: 530000,
+    totalVotes: 310000,
+    seats: 7,
+    parties: [
+      { name: "SNP",          votes: 102109, cWins: 7, color: "#faa61a" },
+      { name: "Conservative", votes: 72000,  cWins: 0, color: "#0087DC" },
+      { name: "Labour",       votes: 52000,  cWins: 0, color: "#d50000" },
+      { name: "Green",        votes: 35009,  cWins: 0, color: "#00b140" },
+      { name: "Lib Dems",     votes: 18000,  cWins: 1, color: "#fdbb30" },
+      { name: "Alba",         votes: 8025,   cWins: 0, color: "#005eb8" },
+    ]
+  },
+  "North East Scotland": {
+    year: 2021,
+    approximate: true,
+    electorate: 470000,
+    totalVotes: 312000,
+    seats: 7,
+    parties: [
+      { name: "SNP",          votes: 132762, cWins: 9, color: "#faa61a" },
+      { name: "Conservative", votes: 89000,  cWins: 0, color: "#0087DC" },
+      { name: "Labour",       votes: 42000,  cWins: 0, color: "#d50000" },
+      { name: "Green",        votes: 21279,  cWins: 0, color: "#00b140" },
+      { name: "Lib Dems",     votes: 18000,  cWins: 0, color: "#fdbb30" },
+      { name: "Alba",         votes: 9405,   cWins: 0, color: "#005eb8" },
+    ]
+  },
+  "South Scotland": {
+    year: 2021,
+    approximate: true,
+    electorate: 430000,
+    totalVotes: 291000,
+    seats: 7,
+    parties: [
+      { name: "SNP",          votes: 96760,  cWins: 7, color: "#faa61a" },
+      { name: "Conservative", votes: 97000,  cWins: 0, color: "#0087DC" },
+      { name: "Labour",       votes: 47000,  cWins: 0, color: "#d50000" },
+      { name: "Green",        votes: 18509,  cWins: 0, color: "#00b140" },
+      { name: "Lib Dems",     votes: 12000,  cWins: 0, color: "#fdbb30" },
+      { name: "Alba",         votes: 5498,   cWins: 0, color: "#005eb8" },
+    ]
+  },
+  "Highlands & Islands": {
+    year: 2021,
+    approximate: true,
+    electorate: 360000,
+    totalVotes: 242000,
+    seats: 7,
+    parties: [
+      { name: "SNP",          votes: 96433,  cWins: 6, color: "#faa61a" },
+      { name: "Conservative", votes: 61000,  cWins: 0, color: "#0087DC" },
+      { name: "Lib Dems",     votes: 27000,  cWins: 2, color: "#fdbb30" },
+      { name: "Labour",       votes: 22000,  cWins: 0, color: "#d50000" },
+      { name: "Green",        votes: 17729,  cWins: 0, color: "#00b140" },
+      { name: "Alba",         votes: 7897,   cWins: 0, color: "#005eb8" },
+    ]
+  },
+  "West Scotland": {
+    year: 2021,
+    approximate: true,
+    electorate: 480000,
+    totalVotes: 319000,
+    seats: 7,
+    parties: [
+      { name: "SNP",          votes: 143768, cWins: 8, color: "#faa61a" },
+      { name: "Labour",       votes: 68000,  cWins: 0, color: "#d50000" },
+      { name: "Conservative", votes: 66000,  cWins: 0, color: "#0087DC" },
+      { name: "Green",        votes: 24069,  cWins: 0, color: "#00b140" },
+      { name: "Lib Dems",     votes: 10000,  cWins: 0, color: "#fdbb30" },
+      { name: "Alba",         votes: 7134,   cWins: 0, color: "#005eb8" },
+    ]
+  }
+};
+
+// Parties considered "unionist" for the source selector
+const UNIONIST = ["Conservative","Labour","Lib Dems","Reform UK","UKIP","All for Unity","Freedom Alliance"];
+// Independence-aligned parties (for displacement detection)
+const INDY = ["SNP","Green","Alba"];
+
+// ── D'Hondt algorithm ──────────────────────────────────────
+
+function runDhondt(parties) {
+  const state = parties.map(p => ({ ...p, lSeats: 0 }));
+  const rounds = [];
+
+  for (let i = 0; i < 7; i++) {
+    const snap = state.map(p => ({
+      ...p,
+      divisor: p.cWins + p.lSeats + 1,
+      eff: p.votes / (p.cWins + p.lSeats + 1)
+    }));
+
+    let wi = 0;
+    for (let j = 1; j < snap.length; j++) {
+      if (snap[j].eff > snap[wi].eff ||
+         (snap[j].eff === snap[wi].eff && snap[j].votes > snap[wi].votes)) wi = j;
+    }
+
+    rounds.push({ snap, winName: snap[wi].name, winIdx: wi });
+    state[wi].lSeats++;
+  }
+  return rounds;
+}
+
+function finalSeats(rounds) {
+  const s = {};
+  rounds.forEach(r => { s[r.winName] = (s[r.winName] || 0) + 1; });
+  return s;
+}
+
+// ── Formatting ─────────────────────────────────────────────
+
+const fmt  = n => Math.round(n).toLocaleString('en-GB');
+const pct  = n => n.toFixed(1) + '%';
+const sign = n => (n > 0 ? '+' : '') + fmt(n);
+
+// ── App state ──────────────────────────────────────────────
+
+let region   = "Mid Scotland & Fife";
+let roundIdx = 0;
+let rounds   = [];
+
+// ── Init ───────────────────────────────────────────────────
+
+function init() {
+  const rgn = document.getElementById('rgn');
+  Object.keys(REGIONS).forEach(name => {
+    const o = document.createElement('option');
+    o.value = o.textContent = name;
+    rgn.appendChild(o);
+  });
+  rgn.addEventListener('change', () => {
+    region   = rgn.value;
+    roundIdx = 0;
+    onRegionChange();
+  });
+
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  document.getElementById('btn-prev').addEventListener('click', () => { if (roundIdx > 0) { roundIdx--; drawExplorer(); } });
+  document.getElementById('btn-next').addEventListener('click', () => { if (roundIdx < 6) { roundIdx++; drawExplorer(); } });
+  document.getElementById('btn-reset').addEventListener('click', () => { roundIdx = 0; drawExplorer(); });
+
+  document.getElementById('boost-slider').addEventListener('input', drawSimulator);
+  document.getElementById('boost-party').addEventListener('change', drawSimulator);
+  document.getElementById('vote-src').addEventListener('change', drawSimulator);
+
+  onRegionChange();
+}
+
+function onRegionChange() {
+  const R = REGIONS[region];
+  rounds = runDhondt(R.parties);
+
+  // Approx note
+  const note = document.getElementById('approx-note');
+  note.innerHTML = R.approximate
+    ? '<span class="approx-tag">~</span> <span class="approx-note">Approximate figures for this region</span>'
+    : '';
+
+  // Populate boost-party selector
+  const bp = document.getElementById('boost-party');
+  bp.innerHTML = '';
+  R.parties.forEach(p => {
+    const o = document.createElement('option');
+    o.value = o.textContent = p.name;
+    bp.appendChild(o);
+  });
+
+  document.getElementById('boost-slider').value = 0;
+  document.getElementById('boost-num').textContent = '+0';
+
+  drawExplorer();
+  drawSimulator();
+}
+
+// ══════════════════════════════════════════════════════════
+// TOOL 1 — EXPLORER
+// ══════════════════════════════════════════════════════════
+
+function drawExplorer() {
+  const R = REGIONS[region];
+  const r = rounds[roundIdx];
+
+  // Badge + buttons
+  document.getElementById('round-badge').textContent = `Round ${roundIdx + 1} of ${R.seats}`;
+  document.getElementById('btn-prev').disabled = roundIdx === 0;
+  document.getElementById('btn-next').disabled = roundIdx === R.seats - 1;
+
+  // Progress pips
+  const pips = document.getElementById('round-pips');
+  pips.innerHTML = '';
+  for (let i = 0; i < R.seats; i++) {
+    const d = document.createElement('div');
+    d.className = 'round-pip' + (i < roundIdx ? ' done' : i === roundIdx ? ' active' : '');
+    pips.appendChild(d);
+  }
+
+  // Narration
+  drawNarration(R, r, roundIdx);
+
+  // Table
+  drawExpTable(R, r, roundIdx);
+
+  // Tally
+  drawTally(R);
+
+  // Cost per seat on final round
+  const cs = document.getElementById('cost-section');
+  if (roundIdx === R.seats - 1) {
+    cs.style.display = 'block';
+    drawCost(R);
+  } else {
+    cs.style.display = 'none';
+  }
+}
+
+function drawNarration(R, r, idx) {
+  const win   = r.snap.find(p => p.name === r.winName);
+  const snp   = r.snap.find(p => p.name === 'SNP');
+  const prev  = idx > 0 ? rounds[idx - 1] : null;
+
+  let snpNote = '';
+  if (snp && snp.cWins > 0) {
+    snpNote = ` The SNP's divisor is <strong>${snp.divisor}</strong> (${snp.cWins} constituency ${snp.cWins === 1 ? 'win' : 'wins'} + ${snp.lSeats} list ${snp.lSeats === 1 ? 'seat' : 'seats'} + 1), cutting their effective vote to <strong>${fmt(snp.eff)}</strong> — a fraction of their ${fmt(snp.votes)} raw votes.`;
+  }
+
+  let html;
+  if (idx === 0) {
+    html = `<strong>Round 1:</strong> All parties enter on a clean slate. Effective vote = list votes ÷ (constituency wins + 1). <strong>${win.name}</strong> leads with an effective vote of <strong>${fmt(win.eff)}</strong> and wins the first regional seat.${snpNote}`;
+  } else {
+    const prevWin = prev.winName;
+    if (prevWin === r.winName) {
+      html = `<strong>Round ${idx + 1}:</strong> <strong>${win.name}</strong> wins again. With <strong>${win.lSeats}</strong> list seat${win.lSeats !== 1 ? 's' : ''} already won, their divisor is now <strong>${win.divisor}</strong> — yet their effective vote of <strong>${fmt(win.eff)}</strong> still leads the field.${snpNote}`;
+    } else {
+      const prevW = prev.snap.find(p => p.name === prevWin);
+      html = `<strong>Round ${idx + 1}:</strong> <strong>${prevWin}</strong> won last round; their divisor rises, creating an opening. <strong>${win.name}</strong> now tops the table with an effective vote of <strong>${fmt(win.eff)}</strong> (${fmt(win.votes)} ÷ ${win.divisor}) and takes this seat.${snpNote}`;
+    }
+  }
+
+  const el = document.getElementById('narration');
+  el.innerHTML = html;
+  el.style.animation = 'none';
+  el.offsetHeight; // reflow
+  el.style.animation = '';
+}
+
+function drawExpTable(R, r, idx) {
+  // Find competitive threshold — de-emphasise parties whose eff < 12% of round winner
+  const winEff = r.snap.find(p => p.name === r.winName).eff;
+  const threshold = winEff * 0.12;
+
+  // Sort by effective vote descending
+  const sorted = [...r.snap].sort((a, b) => b.eff - a.eff);
+
+  const tbody = document.getElementById('exp-tbody');
+  tbody.innerHTML = '';
+
+  sorted.forEach(party => {
+    const isWin  = party.name === r.winName;
+    const isDim  = idx > 0 && party.eff < threshold && !isWin;
+    // Seats won including this round
+    const seatsThisRound = rounds.slice(0, idx + 1).filter(rd => rd.winName === party.name).length;
+
+    const tr = document.createElement('tr');
+    tr.className = isWin ? 'win-row' : isDim ? 'dim-row' : '';
+
+    const pipHtml = seatsThisRound > 0
+      ? `<div class="pips">${Array(seatsThisRound).fill(`<div class="pip" style="background:${party.color}"></div>`).join('')}</div>`
+      : '<span style="color:var(--dim);font-size:.8rem">—</span>';
+
+    tr.innerHTML = `
+      <td><div class="party-cell">
+        <span class="dot" style="background:${party.color}"></span>
+        ${party.name}
+        ${isWin ? '<span class="win-badge">Wins seat</span>' : ''}
+      </div></td>
+      <td class="mono">${fmt(party.votes)}</td>
+      <td class="mono">${party.cWins}</td>
+      <td class="mono">${party.divisor}</td>
+      <td class="eff-vote mono">${fmt(party.eff)}</td>
+      <td>${pipHtml}</td>`;
+
+    tbody.appendChild(tr);
+  });
+}
+
+function drawTally(R) {
+  const seats = {};
+  rounds.slice(0, roundIdx + 1).forEach(r => { seats[r.winName] = (seats[r.winName] || 0) + 1; });
+  const colors = Object.fromEntries(R.parties.map(p => [p.name, p.color]));
+
+  const tally = document.getElementById('tally');
+  tally.innerHTML = '';
+
+  // Winners first
+  Object.entries(seats).forEach(([name, n]) => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.innerHTML = `<span class="dot" style="background:${colors[name] || '#888'}"></span><span>${name}</span><span class="chip-n">${n}</span>`;
+    tally.appendChild(chip);
+  });
+
+  // Zero-seat parties (dimmed)
+  R.parties.filter(p => !seats[p.name]).forEach(p => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.style.opacity = '.3';
+    chip.innerHTML = `<span class="dot" style="background:${p.color}"></span><span>${p.name}</span><span class="chip-n">0</span>`;
+    tally.appendChild(chip);
+  });
+}
+
+function drawCost(R) {
+  const fs = finalSeats(rounds);
+  const winners = R.parties.filter(p => fs[p.name]);
+  winners.sort((a, b) => b.votes / fs[b.name] - a.votes / fs[a.name]);
+
+  const grid = document.getElementById('cost-grid');
+  grid.innerHTML = '';
+
+  winners.forEach(p => {
+    const n = fs[p.name];
+    const cost = p.votes / n;
+    const card = document.createElement('div');
+    card.className = 'cost-card';
+    card.innerHTML = `
+      <div class="cost-party"><span class="dot" style="background:${p.color}"></span>${p.name}</div>
+      <div class="cost-val">${fmt(cost)}</div>
+      <div class="cost-sub">votes per list seat (${n} seat${n !== 1 ? 's' : ''})</div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// TOOL 2 — SIMULATOR
+// ══════════════════════════════════════════════════════════
+
+function applyBoost(parties, boostName, boost, src) {
+  const ps = parties.map(p => ({ ...p }));
+  const target = ps.find(p => p.name === boostName);
+  if (!target || boost === 0) return ps;
+
+  target.votes += boost;
+
+  if (src === 'air') {
+    // no deduction
+  } else if (src === 'labour') {
+    const l = ps.find(p => p.name === 'Labour');
+    if (l) l.votes = Math.max(0, l.votes - boost);
+  } else if (src === 'con') {
+    const c = ps.find(p => p.name === 'Conservative');
+    if (c) c.votes = Math.max(0, c.votes - boost);
+  } else if (src === 'labcon') {
+    const h = boost / 2;
+    const l = ps.find(p => p.name === 'Labour');
+    const c = ps.find(p => p.name === 'Conservative');
+    if (l) l.votes = Math.max(0, l.votes - h);
+    if (c) c.votes = Math.max(0, c.votes - h);
+  } else if (src === 'unionist') {
+    const pool = ps.filter(p => UNIONIST.includes(p.name) && p.name !== boostName);
+    if (pool.length) {
+      const share = boost / pool.length;
+      pool.forEach(p => { p.votes = Math.max(0, p.votes - share); });
+    }
+  }
+
+  return ps;
+}
+
+function drawSimulator() {
+  const R       = REGIONS[region];
+  const boost   = parseInt(document.getElementById('boost-slider').value);
+  const bpName  = document.getElementById('boost-party').value;
+  const src     = document.getElementById('vote-src').value;
+
+  document.getElementById('boost-num').textContent = '+' + fmt(boost);
+
+  // Turnout panel
+  const tc = document.getElementById('turnout-card');
+  if (src === 'air') { tc.style.display = 'block'; drawTurnout(R, boost); }
+  else               { tc.style.display = 'none'; }
+
+  const boosted   = applyBoost(R.parties, bpName, boost, src);
+  const simRounds = runDhondt(boosted);
+  const actSeats  = finalSeats(rounds);
+  const simSeats  = finalSeats(simRounds);
+
+  drawComparison(R, actSeats, simSeats);
+  drawInsight(R, actSeats, simSeats, bpName, boost, src, boosted, simRounds);
+  drawSimTable(boosted, simRounds);
+}
+
+function drawTurnout(R, boost) {
+  const orig    = R.totalVotes;
+  const newTot  = orig + boost;
+  const origPct = orig / R.electorate * 100;
+  const newPct  = newTot / R.electorate * 100;
+  const col     = newPct > 80 ? 'var(--red)' : newPct > 70 ? 'var(--yellow)' : 'var(--green)';
+
+  document.getElementById('turnout-grid').innerHTML = `
+    <div class="t-stat"><div class="t-val mono">${fmt(orig)}</div><div class="t-lbl">Original votes cast</div></div>
+    <div class="t-stat"><div class="t-val mono">${fmt(newTot)}</div><div class="t-lbl">New total with boost</div></div>
+    <div class="t-stat"><div class="t-val mono">${pct(origPct)}</div><div class="t-lbl">Original turnout</div></div>
+    <div class="t-stat"><div class="t-val mono" style="color:${col}">${pct(newPct)}</div><div class="t-lbl">Implied new turnout</div></div>`;
+
+  let note;
+  if (boost === 0) note = 'No boost applied — turnout unchanged.';
+  else if (newPct > 90) note = `This would require turnout to rise from ${pct(origPct)} to ${pct(newPct)} — effectively impossible. Scottish Parliament elections have never exceeded 65%.`;
+  else if (newPct > 80) note = `Turnout would need to rise from ${pct(origPct)} to ${pct(newPct)} — historically unprecedented for a Holyrood election.`;
+  else if (newPct > 70) note = `Turnout would rise from ${pct(origPct)} to ${pct(newPct)} — significantly above any Scottish Parliament election to date.`;
+  else note = `Turnout would rise from ${pct(origPct)} to ${pct(newPct)}, an increase of ${pct(newPct - origPct)}.`;
+
+  document.getElementById('turnout-note').textContent = note;
+}
+
+function drawComparison(R, actSeats, simSeats) {
+  const relevant = R.parties.filter(p => actSeats[p.name] || simSeats[p.name]);
+
+  function render(id, primary, other) {
+    const el = document.getElementById(id);
+    el.innerHTML = '';
+    relevant.forEach(p => {
+      const a = primary[p.name] || 0;
+      const b = other[p.name]   || 0;
+      const d = a - b;
+      let badge = '';
+      if (id === 'cmp-sim' && d !== 0) {
+        badge = d > 0
+          ? `<span class="badge-gain">+${d}</span>`
+          : `<span class="badge-loss">${d}</span>`;
+      }
+      const row = document.createElement('div');
+      row.className = 'cmp-row';
+      row.innerHTML = `
+        <div class="cmp-party"><span class="dot" style="background:${p.color}"></span>${p.name}</div>
+        <div><span class="cmp-seats">${a}</span>${badge}</div>`;
+      el.appendChild(row);
+    });
+  }
+
+  render('cmp-actual', actSeats, simSeats);
+  render('cmp-sim',    simSeats, actSeats);
+}
+
+function drawInsight(R, actSeats, simSeats, bpName, boost, src, boosted, simRounds) {
+  const box = document.getElementById('insight');
+  const actN = actSeats[bpName] || 0;
+  const simN = simSeats[bpName] || 0;
+  const diff = simN - actN;
+
+  // Detect displacement
+  const losers  = Object.entries(actSeats).filter(([n, s]) => (simSeats[n] || 0) < s).map(([n]) => n);
+  const indyLost = losers.filter(n => INDY.includes(n));
+  const isIndy   = INDY.includes(bpName);
+  const displaced = diff > 0 && indyLost.length > 0 && isIndy;
+
+  // Boosted party eff at round 1 (actual vs sim)
+  const actParty = R.parties.find(p => p.name === bpName);
+  const actEff   = actParty ? actParty.votes / (actParty.cWins + 1) : 0;
+  const simParty = boosted.find(p => p.name === bpName);
+  const simEff   = simParty ? simParty.votes / (simParty.cWins + 1) : 0;
+
+  let html, cls;
+
+  if (boost === 0) {
+    cls  = 'insight neutral';
+    html = '<strong>No boost applied.</strong> Move the slider above to add extra list votes and watch the seat allocation respond in real time.';
+  } else if (diff === 0 && actN === 0) {
+    cls  = 'insight';
+    const maxSimEff = Math.max(...simRounds.map(rd => { const p = rd.snap.find(x => x.name === bpName); return p ? p.eff : 0; }));
+    html = `Even with <strong>+${fmt(boost)} extra ${bpName} list votes</strong>, they still win zero seats in ${region}. Their effective vote rises from <strong>${fmt(actEff)}</strong> to <strong>${fmt(maxSimEff)}</strong> but never overtakes the threshold in any round. The gap is structural.`;
+  } else if (diff === 0) {
+    cls  = 'insight neutral';
+    html = `Adding <strong>+${fmt(boost)} votes</strong> to ${bpName} doesn't change their seat count — they hold <strong>${simN}</strong> seat${simN !== 1 ? 's' : ''} in both scenarios.`;
+  } else if (displaced) {
+    cls  = 'insight warn';
+    html = `⚠ <strong>Displacement alert.</strong> At +${fmt(boost)} votes, ${bpName} gains <strong>${diff > 0 ? '+' + diff : diff} seat${Math.abs(diff) !== 1 ? 's' : ''}</strong> — but takes ${Math.abs(diff) > 1 ? 'them' : 'it'} from <strong>${indyLost.join(', ')}</strong>. Net pro-independence seats in this region: <strong>unchanged</strong>. The D'Hondt system redistributes within the independence bloc rather than adding to it.`;
+  } else if (diff > 0) {
+    const lostStr = losers.length ? ` at the expense of ${losers.map(n => `${n} (−${(actSeats[n] || 0) - (simSeats[n] || 0)})`).join(', ')}` : '';
+    cls  = 'insight neutral';
+    html = `At <strong>+${fmt(boost)} votes</strong>, ${bpName} gains <strong>+${diff} seat${diff !== 1 ? 's' : ''}</strong>, reaching ${simN} total in ${region}${lostStr}.`;
+  } else {
+    cls  = 'insight';
+    html = `At <strong>+${fmt(boost)} votes</strong>, ${bpName} still wins <strong>${simN}</strong> seat${simN !== 1 ? 's' : ''} — same as actual. No change to the outcome.`;
+  }
+
+  box.className = cls;
+  box.innerHTML = html;
+}
+
+function drawSimTable(boosted, simRounds) {
+  const fs = finalSeats(simRounds);
+  const sorted = [...boosted].sort((a, b) => b.votes - a.votes);
+  const tbody = document.getElementById('sim-tbody');
+  tbody.innerHTML = '';
+
+  sorted.forEach(party => {
+    if (party.votes < 100 && !fs[party.name]) return; // hide tiny/irrelevant parties
+
+    const tr = document.createElement('tr');
+    let cells = `
+      <td><div class="party-cell"><span class="dot" style="background:${party.color}"></span>${party.name}</div></td>
+      <td class="mono">${fmt(party.votes)}</td>
+      <td class="mono">${party.cWins}</td>`;
+
+    simRounds.forEach(rd => {
+      const p   = rd.snap.find(x => x.name === party.name);
+      const isW = rd.winName === party.name;
+      cells += `<td class="mono${isW ? ' ev-win' : ''}">${p ? fmt(p.eff) : '—'}</td>`;
+    });
+
+    const n = fs[party.name] || 0;
+    cells += `<td class="mono" style="font-weight:700;color:${n > 0 ? party.color : 'var(--dim)'}">${n}</td>`;
+    tr.innerHTML = cells;
+    tbody.appendChild(tr);
+  });
+}
+
+init();
+</script>
+</body>
+</html>
